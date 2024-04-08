@@ -24,6 +24,9 @@ const AddressSelection = () => {
         country: '',
     });
 
+    // Define google, place, and map variables in the outer scope
+    let google, place, map;
+
     const handleChange = (event, inputType) => {
         setAddress(prevState => ({
             ...prevState,
@@ -38,18 +41,19 @@ const AddressSelection = () => {
                 version: "weekly",
             });
 
-            loader.load().then(async () => {
-                const { Map, Autocomplete } = await google.maps.importLibrary("places");
+            loader.load().then(async (googleInstance) => {
+                google = googleInstance;
+                const { Autocomplete } = await google.maps.importLibrary("places");
 
                 const mapOptions = CONFIGURATION.mapOptions;
-                const map = new Map(document.getElementById('gmp-map'), mapOptions);
+                map = new google.maps.Map(document.getElementById('gmp-map'), mapOptions);
                 const autocomplete = new Autocomplete(document.getElementById('location-input'), {
                     fields: ['address_components', 'geometry', 'name'],
                     types: ['address'],
                 });
 
                 autocomplete.addListener('place_changed', () => {
-                    const place = autocomplete.getPlace();
+                    place = autocomplete.getPlace();
                     if (!place.geometry) {
                         window.alert(`No details available for input: '${place.name}'`);
                         return;
@@ -61,6 +65,8 @@ const AddressSelection = () => {
                         postal_code: place.address_components[6].long_name,
                         country: place.address_components[5].long_name,
                     });
+
+                    handleCheckout(); // Call handleCheckout function
                 });
             });
         };
@@ -68,9 +74,25 @@ const AddressSelection = () => {
         initMap();
     }, []);
 
-    const handleSubmit = () => {
-        console.log('Address:', address);
-        // Tutaj możesz przekazać wartość `address` dalej w swojej aplikacji
+    const handleCheckout = () => {
+        if (google && google.maps) {
+            if (place && place.geometry) {
+                // Tworzenie znacznika na mapie w miejscu wybranego adresu
+                const marker = new google.maps.Marker({
+                    position: {
+                        lat: place.geometry.location.lat(),
+                        lng: place.geometry.location.lng()
+                    },
+                    map: map,
+                    title: place.formatted_address // Opcjonalny tytuł znacznika
+                });
+
+                // Ustawienie nowego centrum mapy na wybranej lokalizacji
+                map.setCenter(place.geometry.location);
+            }
+        } else {
+            console.error('Google Maps API is not available.');
+        }
     };
 
     return (
@@ -103,16 +125,9 @@ const AddressSelection = () => {
                     <input
                         type="text"
                         className="half-input"
-                        placeholder="State/Province"
+                        placeholder="Zip/Postal code"
                         value={address.postal_code}
                         onChange={(e) => handleChange(e, 'postal_code')}
-                    />
-                    <input
-                        type="text"
-                        className="half-input"
-                        placeholder="Zip/Postal code"
-                        value={address.country}
-                        onChange={(e) => handleChange(e, 'country')}
                     />
                 </div>
                 <input
@@ -121,7 +136,7 @@ const AddressSelection = () => {
                     value={address.country}
                     onChange={(e) => handleChange(e, 'country')}
                 />
-                <button className="button-cta" onClick={handleSubmit}>Checkout</button>
+                <button className="button-cta" onClick={handleCheckout}>Checkout</button>
             </div>
             <div className="map" id="gmp-map" style={{ width: '100%', height: '400px' }}></div>
         </div>
