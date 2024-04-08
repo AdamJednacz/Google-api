@@ -24,6 +24,13 @@ const AddressSelection = () => {
         country: '',
     });
 
+    const [place, setPlace] = useState(null); // Dodanie stanu dla place
+
+    const [map, setMap] = useState(null);
+    const [google, setGoogle] = useState(null);
+
+    const [markers, setMarkers] = useState([]);
+
     const handleChange = (event, inputType) => {
         setAddress(prevState => ({
             ...prevState,
@@ -38,29 +45,33 @@ const AddressSelection = () => {
                 version: "weekly",
             });
 
-            loader.load().then(async () => {
-                const { Map, Autocomplete } = await google.maps.importLibrary("places");
+            loader.load().then(async (googleInstance) => {
+                setGoogle(googleInstance);
+                const { Autocomplete } = await googleInstance.maps.importLibrary("places");
 
                 const mapOptions = CONFIGURATION.mapOptions;
-                const map = new Map(document.getElementById('gmp-map'), mapOptions);
+                const newMap = new googleInstance.maps.Map(document.getElementById('gmp-map'), mapOptions);
+                setMap(newMap);
                 const autocomplete = new Autocomplete(document.getElementById('location-input'), {
                     fields: ['address_components', 'geometry', 'name'],
                     types: ['address'],
                 });
 
                 autocomplete.addListener('place_changed', () => {
-                    const place = autocomplete.getPlace();
-                    if (!place.geometry) {
-                        window.alert(`No details available for input: '${place.name}'`);
+                    const newPlace = autocomplete.getPlace();
+                    if (!newPlace.geometry) {
+                        window.alert(`No details available for input: '${newPlace.name}'`);
                         return;
                     }
+                    setPlace(newPlace);
                     setAddress({
-                        location: place.name,
-                        locality: place.formatted_address,
-                        administrative_area_level_1: place.address_components[0].long_name,
-                        postal_code: place.address_components[6].long_name,
-                        country: place.address_components[5].long_name,
+                        location: newPlace.name,
+                        locality: newPlace.address_components[2].long_name,
+                        administrative_area_level_1: newPlace.address_components[0].long_name,
+                        postal_code: newPlace.address_components[6].long_name,
+                        country: newPlace.address_components[5].long_name,
                     });
+                    handleCheckout(newMap, newPlace);
                 });
             });
         };
@@ -68,9 +79,35 @@ const AddressSelection = () => {
         initMap();
     }, []);
 
-    const handleSubmit = () => {
-        console.log('Address:', address);
-        // Tutaj możesz przekazać wartość `address` dalej w swojej aplikacji
+    const handleCheckout = (map, place) => {
+        if (google && google.maps) {
+            if (place && place.geometry) {
+                const marker = new google.maps.Marker({
+                    position: place.geometry.location,
+                    map: map,
+                    title: place.formatted_address
+                });
+
+                map.setCenter(place.geometry.location);
+            }
+        } else {
+            console.error('Google Maps API is not available.');
+        }
+    };
+
+    const handleAdd = () => {
+        if (place && place.geometry) {
+            const markerPosition = {
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng()
+            };
+
+            setMarkers(prevMarkers => [...prevMarkers, markerPosition]);
+            console.log('Markers:', markers);
+            handleCheckout(map, place);
+        } else {
+            console.error('Place geometry not available.');
+        }
     };
 
     return (
@@ -90,29 +127,22 @@ const AddressSelection = () => {
                 <input
                     type="text"
                     placeholder="Apt, Suite, etc (optional)"
-                    value={address.locality}
-                    onChange={(e) => handleChange(e, 'locality')}
+                    value={address.administrative_area_level_1 }
+                    onChange={(e) => handleChange(e, 'administrative_area_level_1')}
                 />
                 <input
                     type="text"
                     placeholder="City"
-                    value={address.administrative_area_level_1}
-                    onChange={(e) => handleChange(e, 'administrative_area_level_1')}
+                    value={address.locality}
+                    onChange={(e) => handleChange(e, 'locality')}
                 />
                 <div className="half-input-container">
                     <input
                         type="text"
                         className="half-input"
-                        placeholder="State/Province"
+                        placeholder="Zip/Postal code"
                         value={address.postal_code}
                         onChange={(e) => handleChange(e, 'postal_code')}
-                    />
-                    <input
-                        type="text"
-                        className="half-input"
-                        placeholder="Zip/Postal code"
-                        value={address.country}
-                        onChange={(e) => handleChange(e, 'country')}
                     />
                 </div>
                 <input
@@ -121,7 +151,7 @@ const AddressSelection = () => {
                     value={address.country}
                     onChange={(e) => handleChange(e, 'country')}
                 />
-                <button className="button-cta" onClick={handleSubmit}>Checkout</button>
+                <button className="button-cta" onClick={handleAdd}>Zapisz</button>
             </div>
             <div className="map" id="gmp-map" style={{ width: '100%', height: '400px' }}></div>
         </div>
