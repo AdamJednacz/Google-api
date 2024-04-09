@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loader } from "@googlemaps/js-api-loader";
+import {Link} from "react-router-dom";
 
 const AddressSelection = () => {
     const CONFIGURATION = {
@@ -79,6 +80,12 @@ const AddressSelection = () => {
         initMap();
     }, []);
 
+    useEffect(() => {
+        const storedMarkers = JSON.parse(localStorage.getItem('markers'));
+        if (storedMarkers) {
+            setMarkers(storedMarkers);
+        }
+    }, []);
     const handleCheckout = (map, place) => {
         if (google && google.maps) {
             if (place && place.geometry) {
@@ -90,27 +97,44 @@ const AddressSelection = () => {
 
                 map.setCenter(place.geometry.location);
             }
+            markers.forEach(markerPosition => {
+                const marker = new google.maps.Marker({
+                    position: markerPosition,
+                    map: map
+                });
+            });
         } else {
             console.error('Google Maps API is not available.');
         }
     };
-
     const handleAdd = () => {
         if (place && place.geometry) {
             const markerPosition = {
                 lat: place.geometry.location.lat(),
                 lng: place.geometry.location.lng()
             };
+            const existingMarkers = JSON.parse(localStorage.getItem('markers')) || [];
+            // Dodanie nowego markera do tablicy markerów
+            setMarkers(prevMarkers => {
+                const updatedMarkers = [...existingMarkers, markerPosition];
+                console.log('Markers:', updatedMarkers); // Logowanie zaktualizowanej tablicy markerów
+                localStorage.setItem('markers', JSON.stringify(updatedMarkers));
+                console.log(updatedMarkers)
 
-            setMarkers(prevMarkers => [...prevMarkers, markerPosition]);
-            console.log('Markers:', markers);
+                return updatedMarkers;
+            });
             handleCheckout(map, place);
+            console.log(localStorage)
         } else {
             console.error('Place geometry not available.');
         }
     };
 
+    const clear = () =>{
+        localStorage.clear();
+    }
     return (
+        <section>
         <div className="card-container">
             <div className="panel">
                 <div>
@@ -152,9 +176,13 @@ const AddressSelection = () => {
                     onChange={(e) => handleChange(e, 'country')}
                 />
                 <button className="button-cta" onClick={handleAdd}>Zapisz</button>
+                <button className="button-cta" onClick={clear}>Clear</button>
             </div>
             <div className="map" id="gmp-map" style={{ width: '100%', height: '400px' }}></div>
         </div>
+            <Link to="/view2">Next</Link>
+
+        </section>
     );
 };
 
