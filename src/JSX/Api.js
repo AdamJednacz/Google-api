@@ -122,7 +122,6 @@ const AddressSelection = () => {
                     onChange={(e) => handleChange(e, 'administrative_area_level_1')}
                 />
                 <div className="half-input-container">
-
                     <input
                         type="text"
                         className="half-input"
