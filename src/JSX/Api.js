@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loader } from "@googlemaps/js-api-loader";
+import {Link} from "react-router-dom";
 
 const AddressSelection = () => {
     const CONFIGURATION = {
@@ -24,8 +25,12 @@ const AddressSelection = () => {
         country: '',
     });
 
-    // Define google, place, and map variables in the outer scope
-    let google, place, map;
+    const [place, setPlace] = useState(null); // Dodanie stanu dla place
+
+    const [map, setMap] = useState(null);
+    const [google, setGoogle] = useState(null);
+
+    const [markers, setMarkers] = useState([]);
 
     const handleChange = (event, inputType) => {
         setAddress(prevState => ({
@@ -42,31 +47,32 @@ const AddressSelection = () => {
             });
 
             loader.load().then(async (googleInstance) => {
-                google = googleInstance;
-                const { Autocomplete } = await google.maps.importLibrary("places");
+                setGoogle(googleInstance);
+                const { Autocomplete } = await googleInstance.maps.importLibrary("places");
 
                 const mapOptions = CONFIGURATION.mapOptions;
-                map = new google.maps.Map(document.getElementById('gmp-map'), mapOptions);
+                const newMap = new googleInstance.maps.Map(document.getElementById('gmp-map'), mapOptions);
+                setMap(newMap);
                 const autocomplete = new Autocomplete(document.getElementById('location-input'), {
                     fields: ['address_components', 'geometry', 'name'],
                     types: ['address'],
                 });
 
                 autocomplete.addListener('place_changed', () => {
-                    place = autocomplete.getPlace();
-                    if (!place.geometry) {
-                        window.alert(`No details available for input: '${place.name}'`);
+                    const newPlace = autocomplete.getPlace();
+                    if (!newPlace.geometry) {
+                        window.alert(`No details available for input: '${newPlace.name}'`);
                         return;
                     }
+                    setPlace(newPlace);
                     setAddress({
-                        location: place.name,
-                        locality: place.formatted_address,
-                        administrative_area_level_1: place.address_components[0].long_name,
-                        postal_code: place.address_components[6].long_name,
-                        country: place.address_components[5].long_name,
+                        location: newPlace.name,
+                        locality: newPlace.address_components[2].long_name,
+                        administrative_area_level_1: newPlace.address_components[0].long_name,
+                        postal_code: newPlace.address_components[6].long_name,
+                        country: newPlace.address_components[5].long_name,
                     });
-
-                    handleCheckout(); // Call handleCheckout function
+                    handleCheckout(newMap, newPlace);
                 });
             });
         };
@@ -74,28 +80,61 @@ const AddressSelection = () => {
         initMap();
     }, []);
 
-    const handleCheckout = () => {
+    useEffect(() => {
+        const storedMarkers = JSON.parse(localStorage.getItem('markers'));
+        if (storedMarkers) {
+            setMarkers(storedMarkers);
+        }
+    }, []);
+    const handleCheckout = (map, place) => {
         if (google && google.maps) {
             if (place && place.geometry) {
-                // Tworzenie znacznika na mapie w miejscu wybranego adresu
                 const marker = new google.maps.Marker({
-                    position: {
-                        lat: place.geometry.location.lat(),
-                        lng: place.geometry.location.lng()
-                    },
+                    position: place.geometry.location,
                     map: map,
-                    title: place.formatted_address // Opcjonalny tytuł znacznika
+                    title: place.formatted_address
                 });
 
-                // Ustawienie nowego centrum mapy na wybranej lokalizacji
                 map.setCenter(place.geometry.location);
             }
+            markers.forEach(markerPosition => {
+                const marker = new google.maps.Marker({
+                    position: markerPosition,
+                    map: map
+                });
+            });
         } else {
             console.error('Google Maps API is not available.');
         }
     };
+    const handleAdd = () => {
+        if (place && place.geometry) {
+            const markerPosition = {
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng()
+            };
+            const existingMarkers = JSON.parse(localStorage.getItem('markers')) || [];
+            // Dodanie nowego markera do tablicy markerów
+            setMarkers(prevMarkers => {
+                const updatedMarkers = [...existingMarkers, markerPosition];
+                console.log('Markers:', updatedMarkers); // Logowanie zaktualizowanej tablicy markerów
+                localStorage.setItem('markers', JSON.stringify(updatedMarkers));
+                console.log(updatedMarkers)
 
+                return updatedMarkers;
+            });
+            handleCheckout(map, place);
+            console.log(localStorage)
+        } else {
+            console.error('Place geometry not available.');
+        }
+    };
+
+    const clear = () =>{
+        localStorage.clear();
+    }
     return (
+        <section>
         <div className="card-container">
             <div className="panel">
                 <div>
@@ -112,14 +151,14 @@ const AddressSelection = () => {
                 <input
                     type="text"
                     placeholder="Apt, Suite, etc (optional)"
-                    value={address.locality}
-                    onChange={(e) => handleChange(e, 'locality')}
+                    value={address.administrative_area_level_1 }
+                    onChange={(e) => handleChange(e, 'administrative_area_level_1')}
                 />
                 <input
                     type="text"
                     placeholder="City"
-                    value={address.administrative_area_level_1}
-                    onChange={(e) => handleChange(e, 'administrative_area_level_1')}
+                    value={address.locality}
+                    onChange={(e) => handleChange(e, 'locality')}
                 />
                 <div className="half-input-container">
                     <input
@@ -136,10 +175,14 @@ const AddressSelection = () => {
                     value={address.country}
                     onChange={(e) => handleChange(e, 'country')}
                 />
-                <button className="button-cta" onClick={handleCheckout}>Checkout</button>
+                <button className="button-cta" onClick={handleAdd}>Zapisz</button>
+                <button className="button-cta" onClick={clear}>Clear</button>
             </div>
             <div className="map" id="gmp-map" style={{ width: '100%', height: '400px' }}></div>
         </div>
+            <Link to="/view2">Next</Link>
+
+        </section>
     );
 };
 
