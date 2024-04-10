@@ -10,6 +10,7 @@ const View2 = () => {
     useEffect(() => {
         const storedMarkers = JSON.parse(localStorage.getItem('markers')) || [];
         setSavedMarkers(storedMarkers);
+        console.log(storedMarkers);
     }, []);
 
     useEffect(() => {
@@ -28,8 +29,13 @@ const View2 = () => {
                 setClickedMarker(newClickedMarker);
                 setClosestMarker(clickedPosition);
 
+
                 // Zapisz aktualną pozycję klikniętego markera w local storage
                 localStorage.setItem('clickedMarker', JSON.stringify(clickedPosition));
+                console.log(clickedPosition.lat(), clickedPosition.lng());
+
+                // Zapisz szerokość geograficzną klikniętego markera
+                localStorage.setItem('clickedMarkerLatitude', clickedPosition.lat());
 
                 // Zaktualizuj mapę
                 initMap();
