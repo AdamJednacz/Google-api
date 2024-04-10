@@ -132,6 +132,7 @@ const AddressSelection = () => {
 
     const clear = () =>{
         localStorage.clear();
+         console.log("clear")
     }
     return (
         <section>

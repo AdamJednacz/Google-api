@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const View2 = () => {
     const [savedMarkers, setSavedMarkers] = useState([]);
-    const [clickedMarkers, setClickedMarkers] = useState([]);
+    const [clickedMarker, setClickedMarker] = useState(null);
     const [closestMarker, setClosestMarker] = useState(null);
     const [map, setMap] = useState(null);
 
@@ -13,37 +13,36 @@ const View2 = () => {
     }, []);
 
     useEffect(() => {
-        // Funkcja dodająca nowy znacznik w miejscu kliknięcia
         const addMarker = (clickedPosition) => {
             if (map) {
-                // Usuń wszystkie istniejące znaczniki z mapy
-                clickedMarkers.forEach(marker => {
-                    marker.remove();
-                });
+                // Usuń poprzedni kliknięty marker, jeśli istnieje
+                if (clickedMarker) {
+                    clickedMarker.setMap(null);
+                }
 
-                // Dodaj nowy znacznik
+                // Dodaj nowy kliknięty marker
                 const newClickedMarker = new window.google.maps.Marker({
                     position: clickedPosition,
                     map: map,
                 });
-                console.log("Lista obiektów przed usunięciem:", clickedMarkers);
-                setClickedMarkers([newClickedMarker]);
+                setClickedMarker(newClickedMarker);
                 setClosestMarker(clickedPosition);
+
+                // Zapisz aktualną pozycję klikniętego markera w local storage
+                localStorage.setItem('clickedMarker', JSON.stringify(clickedPosition));
+
+                // Zaktualizuj mapę
+                initMap();
             }
         };
 
-
         const initMap = async () => {
-            // Inicjalizacja mapy
             const mapInstance = new window.google.maps.Map(document.getElementById('gmp-map'), {
                 zoom: 11,
             });
             setMap(mapInstance);
 
-            // Tworzenie obiektu LatLngBounds do określenia granic obszaru zawierającego wszystkie znaczniki
             const bounds = new window.google.maps.LatLngBounds();
-
-            // Dodanie wcześniej zapisanych znaczników na mapie i aktualizacja granic
             savedMarkers.forEach(markerPosition => {
                 const marker = new window.google.maps.Marker({
                     position: markerPosition,
@@ -52,42 +51,33 @@ const View2 = () => {
                 bounds.extend(marker.getPosition());
             });
 
-            // Ustawienie granic mapy
             mapInstance.fitBounds(bounds);
 
-            // Nasłuchiwanie kliknięć na mapie
             mapInstance.addListener('click', (event) => {
                 addMarker(event.latLng);
             });
         };
 
-        // Wywołanie funkcji inicjalizującej mapę
         initMap();
     }, [savedMarkers]);
 
     useEffect(() => {
         if (map) {
-            // Usuń poprzednie kliknięte znaczniki
-            clickedMarkers.forEach(marker => {
-                marker.setMap(null);
-            });
-
-            if (clickedMarkers.length > 0) {
-                const lastClickedMarker = clickedMarkers[clickedMarkers.length - 1];
-                lastClickedMarker.setMap(map);
-
-                // Ustawienie granic mapy z uwzględnieniem wszystkich znaczników
-                const bounds = new window.google.maps.LatLngBounds();
-                savedMarkers.forEach(markerPosition => {
-                    bounds.extend(markerPosition);
-                });
-                bounds.extend(lastClickedMarker.getPosition());
-                map.fitBounds(bounds);
+            // Usuń poprzedni kliknięty marker, jeśli istnieje
+            if (clickedMarker) {
+                clickedMarker.setMap(map);
             }
+
+            const bounds = new window.google.maps.LatLngBounds();
+            savedMarkers.forEach(markerPosition => {
+                bounds.extend(markerPosition);
+            });
+            if (clickedMarker) {
+                bounds.extend(clickedMarker.getPosition());
+            }
+            map.fitBounds(bounds);
         }
-    }, [clickedMarkers, map, savedMarkers]);
-
-
+    }, [clickedMarker, map, savedMarkers]);
 
     return (
         <div>
@@ -95,7 +85,6 @@ const View2 = () => {
             {closestMarker && (
                 <p>Najbliższy znacznik: {JSON.stringify(closestMarker)}</p>
             )}
-            {/* Dodatkowe zawartości komponentu, np. nagłówek, przyciski */}
             <Link to="/">View1</Link>
         </div>
     );
