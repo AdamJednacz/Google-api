@@ -10,34 +10,47 @@ const View2 = () => {
     useEffect(() => {
         const storedMarkers = JSON.parse(localStorage.getItem('markers')) || [];
         setSavedMarkers(storedMarkers);
-        console.log(storedMarkers);
+        console.log('Stored markers:', storedMarkers);
     }, []);
+
+    const findClosestMarker = (clickedPosition, markers) => {
+        let closestMarker = null;
+        let minDistanceX = Number.MAX_VALUE;
+        let minDistanceY = Number.MAX_VALUE;
+
+        markers.forEach(markerPosition => {
+            const distanceX = Math.abs(markerPosition.lat - clickedPosition.lat);
+            const distanceY = Math.abs(markerPosition.lng - clickedPosition.lng);
+
+            if (distanceX < minDistanceX || distanceY < minDistanceY) {
+                minDistanceX = distanceX;
+                minDistanceY = distanceY;
+                closestMarker = markerPosition;
+            }
+        });
+
+        return closestMarker;
+    };
 
     useEffect(() => {
         const addMarker = (clickedPosition) => {
             if (map) {
-                // Usuń poprzedni kliknięty marker, jeśli istnieje
                 if (clickedMarker) {
                     clickedMarker.setMap(null);
                 }
 
-                // Dodaj nowy kliknięty marker
                 const newClickedMarker = new window.google.maps.Marker({
                     position: clickedPosition,
                     map: map,
                 });
                 setClickedMarker(newClickedMarker);
-                setClosestMarker(clickedPosition);
 
-
-                // Zapisz aktualną pozycję klikniętego markera w local storage
                 localStorage.setItem('clickedMarker', JSON.stringify(clickedPosition));
-                console.log(clickedPosition.lat(), clickedPosition.lng());
+                console.log('Clicked marker latitude:', clickedPosition.lat());
+                console.log('Clicked marker longitude:', clickedPosition.lng());
 
-                // Zapisz szerokość geograficzną klikniętego markera
                 localStorage.setItem('clickedMarkerLatitude', clickedPosition.lat());
 
-                // Zaktualizuj mapę
                 initMap();
             }
         };
@@ -68,8 +81,14 @@ const View2 = () => {
     }, [savedMarkers]);
 
     useEffect(() => {
+        if (clickedMarker) {
+            const closest = findClosestMarker(clickedMarker.getPosition().toJSON(), savedMarkers);
+            setClosestMarker(closest);
+        }
+    }, [clickedMarker, savedMarkers]);
+
+    useEffect(() => {
         if (map) {
-            // Usuń poprzedni kliknięty marker, jeśli istnieje
             if (clickedMarker) {
                 clickedMarker.setMap(map);
             }
@@ -95,5 +114,4 @@ const View2 = () => {
         </div>
     );
 };
-
 export default View2;
